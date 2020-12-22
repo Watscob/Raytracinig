@@ -241,6 +241,45 @@ static void render_distances(struct rgb_image *image, struct scene *scene,
     rgb_image_set(image, x, y, pix_color);
 }
 
+static void handle_renderer(render_mode_f renderer,
+                            struct rgb_image *image,
+                            struct scene *scene)
+{
+    for (size_t y = 0; y < image->height; y++)
+        for (size_t x = 0; x < image->width; x++)
+            renderer(image, scene, x, y);
+}
+
+struct rgb_image *reduce_image(struct rgb_image *image)
+{
+    struct rgb_image *res = rgb_image_alloc(image->width / 2, image->height / 2);
+
+    for(size_t y = 0; y < res->height; y++)
+    {
+        for(size_t x = 0; x < res->width; x++)
+        {
+            res->data[res->width * y + x].r =
+                (image->data[image->width * 2 * y + 2 * x].r
+                + image->data[image->width * 2 * y + 1 + 2 * x].r
+                + image->data[image->width * 2 * y + 2 * x + 1].r
+                + image->data[image->width * 2 * y + 1 + 2 * x + 1].r) / 4;
+            res->data[res->width * y + x].g =
+                (image->data[image->width * 2 * y + 2 * x].g
+                + image->data[image->width * 2 * y + 1 + 2 * x].g
+                + image->data[image->width * 2 * y + 2 * x + 1].g
+                + image->data[image->width * 2 * y + 1 + 2 * x + 1].g) / 4;
+            res->data[res->width * y + x].b =
+                (image->data[image->width * 2 * y + 2 * x].b
+                + image->data[image->width * 2 * y + 1 + 2 * x].b
+                + image->data[image->width * 2 * y + 2 * x + 1].b
+                + image->data[image->width * 2 * y + 1 + 2 * x + 1].b) / 4;
+        }
+    }
+
+    free(image);
+    return res;
+}
+
 int main(int argc, char *argv[])
 {
     int rc;
@@ -253,7 +292,7 @@ int main(int argc, char *argv[])
 
     // initialize the frame buffer (the buffer that will store the result of the
     // rendering)
-    struct rgb_image *image = rgb_image_alloc(1000, 1000);
+    struct rgb_image *image = rgb_image_alloc(2000, 2000);
 
     // set all the pixels of the image to black
     struct rgb_pixel bg_color = {0};
@@ -278,9 +317,10 @@ int main(int argc, char *argv[])
     }
 
     // render all pixels
-    for (size_t y = 0; y < image->height; y++)
-        for (size_t x = 0; x < image->width; x++)
-            renderer(image, &scene, x, y);
+    handle_renderer(renderer, image, &scene);
+
+    // apply anti-aliasing
+    image = reduce_image(image);
 
     // write the rendered image to a bmp file
     FILE *fp = fopen(argv[2], "w");
