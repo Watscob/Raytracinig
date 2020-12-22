@@ -1,9 +1,11 @@
 #include <err.h>
 #include <math.h>
+#include <pthread.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "bmp.h"
 #include "camera.h"
@@ -241,18 +243,73 @@ static void render_distances(struct rgb_image *image, struct scene *scene,
     rgb_image_set(image, x, y, pix_color);
 }
 
+struct worker_args
+{
+    render_mode_f renderer;
+    struct rgb_image *image;
+    struct scene *scene;
+    size_t min_y;
+    size_t max_y;
+};
+
+static struct worker_args *init_worker_args(render_mode_f renderer,
+                                            struct rgb_image *image,
+                                            struct scene *scene,
+                                            size_t line_per_process,
+                                            size_t i)
+{
+    struct worker_args *wa = malloc(sizeof(struct worker_args));
+
+    wa->renderer = renderer;
+    wa->image = image;
+    wa->scene = scene;
+    wa->min_y = i * line_per_process;
+    wa->max_y = (i + 1) * line_per_process + 1;
+
+    return wa;
+}
+
+static void *worker(void *args)
+{
+    struct worker_args* wa = args;
+
+    for (size_t y = wa->min_y; y < wa->max_y; y++)
+        for (size_t x = 0; x < wa->image->width; x++)
+            wa->renderer(wa->image, wa->scene, x, y);
+
+    free(args);
+    pthread_exit(NULL);
+}
+
 static void handle_renderer(render_mode_f renderer,
                             struct rgb_image *image,
                             struct scene *scene)
 {
-    for (size_t y = 0; y < image->height; y++)
-        for (size_t x = 0; x < image->width; x++)
-            renderer(image, scene, x, y);
+    size_t nb_process = sysconf(_SC_NPROCESSORS_ONLN);
+    size_t line_per_process = image->height / nb_process;
+    pthread_t thrds[nb_process];
+
+    for(size_t i = 0; i < nb_process; i++)
+    {
+        struct worker_args *wa = init_worker_args(renderer,
+                                                  image,
+                                                  scene,
+                                                  line_per_process,
+                                                  i);
+
+        if (pthread_create(&thrds[i], NULL, worker, (void *)wa) != 0)
+            err(1, "Fail to create thread");
+    }
+
+    for(size_t i = 0; i < nb_process; i++)
+        if (pthread_join(thrds[i], NULL) != 0)
+            err(1, "Fail to join thread");
 }
 
 struct rgb_image *reduce_image(struct rgb_image *image)
 {
-    struct rgb_image *res = rgb_image_alloc(image->width / 2, image->height / 2);
+    struct rgb_image *res = rgb_image_alloc(image->width / 2,
+                                            image->height / 2);
 
     for(size_t y = 0; y < res->height; y++)
     {
