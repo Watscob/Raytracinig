@@ -285,7 +285,7 @@ static void handle_renderer(render_mode_f renderer,
                             struct rgb_image *image,
                             struct scene *scene)
 {
-    size_t nb_process = sysconf(_SC_NPROCESSORS_ONLN);
+    size_t nb_process = sysconf(_SC_NPROCESSORS_ONLN) / 2;
     size_t line_per_process = image->height / nb_process;
     pthread_t thrds[nb_process];
 
@@ -317,19 +317,19 @@ struct rgb_image *reduce_image(struct rgb_image *image)
         {
             res->data[res->width * y + x].r =
                 (image->data[image->width * 2 * y + 2 * x].r
-                + image->data[image->width * 2 * y + 1 + 2 * x].r
-                + image->data[image->width * 2 * y + 2 * x + 1].r
-                + image->data[image->width * 2 * y + 1 + 2 * x + 1].r) / 4;
+                + image->data[image->width * (2 * y + 1) + 2 * x].r
+                + image->data[image->width * 2 * y + (2 * x + 1)].r
+                + image->data[image->width * (2 * y + 1) + (2 * x + 1)].r) / 4;
             res->data[res->width * y + x].g =
                 (image->data[image->width * 2 * y + 2 * x].g
-                + image->data[image->width * 2 * y + 1 + 2 * x].g
-                + image->data[image->width * 2 * y + 2 * x + 1].g
-                + image->data[image->width * 2 * y + 1 + 2 * x + 1].g) / 4;
+                + image->data[image->width * (2 * y + 1) + 2 * x].g
+                + image->data[image->width * 2 * y + (2 * x + 1)].g
+                + image->data[image->width * (2 * y + 1) + (2 * x + 1)].g) / 4;
             res->data[res->width * y + x].b =
                 (image->data[image->width * 2 * y + 2 * x].b
-                + image->data[image->width * 2 * y + 1 + 2 * x].b
-                + image->data[image->width * 2 * y + 2 * x + 1].b
-                + image->data[image->width * 2 * y + 1 + 2 * x + 1].b) / 4;
+                + image->data[image->width * (2 * y + 1) + 2 * x].b
+                + image->data[image->width * 2 * y + (2 * x + 1)].b
+                + image->data[image->width * (2 * y + 1) + (2 * x + 1)].b) / 4;
         }
     }
 
@@ -358,10 +358,18 @@ int main(int argc, char *argv[])
     double aspect_ratio = (double)image->width / image->height;
 
     // build the scene
+    printf("Reading %s... ", argv[1]);
+    fflush(stdout);
     build_obj_scene(&scene, aspect_ratio);
 
     if (load_obj(&scene, argv[1]))
+    {
+        printf("Fail\n");
+        fflush(stdout);
         return 41;
+    }
+    printf("Success\n");
+    fflush(stdout);
 
     // parse options
     render_mode_f renderer = render_shaded;
@@ -374,18 +382,35 @@ int main(int argc, char *argv[])
     }
 
     // render all pixels
+    printf("Generating the image... ");
+    fflush(stdout);
     handle_renderer(renderer, image, &scene);
+    printf("Success\n");
+    fflush(stdout);
 
     // apply anti-aliasing
+    printf("Apply anti-aliasing... ");
+    fflush(stdout);
     image = reduce_image(image);
+    printf("Success\n");
+    fflush(stdout);
+
 
     // write the rendered image to a bmp file
+    printf("Save the picture... ");
+    fflush(stdout);
     FILE *fp = fopen(argv[2], "w");
     if (fp == NULL)
+    {
+        printf("Fail\n");
+        fflush(stdout);
         err(1, "failed to open the output file");
+    }
 
     rc = bmp_write(image, ppm_from_ppi(80), fp);
     fclose(fp);
+    printf("Success\n");
+    fflush(stdout);
 
     // release resources
     scene_destroy(&scene);
