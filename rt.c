@@ -81,7 +81,7 @@ static void build_test_scene(struct scene *scene, double aspect_ratio)
 
     // setup the scene lighting
     scene->light_intensity = 5;
-    scene->light_color = (struct vec3){1, 1, 0}; // yellow
+    scene->light_color = (struct vec3){1, 0.2, 0.2};
     scene->light_direction = (struct vec3){-1, 1, -1};
     vec3_normalize(&scene->light_direction);
 
@@ -106,7 +106,7 @@ static void build_obj_scene(struct scene *scene, double aspect_ratio)
 {
     // setup the scene lighting
     scene->light_intensity = 5;
-    scene->light_color = (struct vec3){1, 1, 0}; // yellow
+    scene->light_color = (struct vec3){1, 0.2, 0.2};
     scene->light_direction = (struct vec3){-1, -1, -1};
     vec3_normalize(&scene->light_direction);
 
@@ -243,6 +243,8 @@ static void render_distances(struct rgb_image *image, struct scene *scene,
     rgb_image_set(image, x, y, pix_color);
 }
 
+/* Worker for threads
+*/
 struct worker_args
 {
     render_mode_f renderer;
@@ -281,6 +283,8 @@ static void *worker(void *args)
     pthread_exit(NULL);
 }
 
+/* Render the image by callong a thread each line_per_process
+*/
 static void handle_renderer(render_mode_f renderer,
                             struct rgb_image *image,
                             struct scene *scene)
@@ -306,6 +310,8 @@ static void handle_renderer(render_mode_f renderer,
             err(1, "Fail to join thread");
 }
 
+/* Antialiasing function (take the medium of  4 pixels to do 1 pixel
+*/
 struct rgb_image *reduce_image(struct rgb_image *image)
 {
     struct rgb_image *res = rgb_image_alloc(image->width / 2,
@@ -352,7 +358,7 @@ int main(int argc, char *argv[])
     struct rgb_image *image = rgb_image_alloc(2000, 2000);
 
     // set all the pixels of the image to black
-    struct rgb_pixel bg_color = {0};
+    struct rgb_pixel bg_color = {.r = 255, .g = 255, .b = 255};
     rgb_image_clear(image, &bg_color);
 
     double aspect_ratio = (double)image->width / image->height;
