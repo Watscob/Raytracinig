@@ -151,7 +151,7 @@ static void get_childrens(struct kdtree *root, struct kdtree **left, struct kdtr
 
 static void build_kdtree_rec(struct kdtree *root, size_t nb)
 {
-    if (nb == 10)
+    if (nb == 30)
         return;
 
     struct kdtree *left = NULL;
