@@ -94,10 +94,10 @@ static bool intersect_box(struct kdtree *box1, struct kdtree *box2)
 {
     return ((box1->corner1.x < box2->corner2.x && box1->corner2.x > box2->corner1.x)
         && (box1->corner1.y < box2->corner2.y && box1->corner2.y > box2->corner1.y)
-        && (box1->corner1.z < box2->corner2.z && box1->corner2.z > box2->corner1.z))
-        || ((box2->corner1.x < box1->corner2.x && box2->corner2.x > box1->corner1.x)
+        && (box1->corner1.z < box2->corner2.z && box1->corner2.z > box2->corner1.z));
+/*        || ((box2->corner1.x < box1->corner2.x && box2->corner2.x > box1->corner1.x)
         && (box2->corner1.y < box1->corner2.y && box2->corner2.y > box1->corner1.y)
-        && (box2->corner1.z < box1->corner2.z && box2->corner2.z > box1->corner1.z));
+        && (box2->corner1.z < box1->corner2.z && box2->corner2.z > box1->corner1.z));*/
 }
 
 static void get_childrens(struct kdtree *root, struct kdtree **left, struct kdtree **right, char c)
@@ -107,12 +107,12 @@ static void get_childrens(struct kdtree *root, struct kdtree **left, struct kdtr
         *left = init_kdtree_node(NULL,
                 root->corner1,
                 (struct vec3)
-                {.x = root->corner2.x / 2,
+                {.x = MAX_2(root->corner1.x, root->corner2.x) / 2,
                 .y = root->corner2.y,
                 .z = root->corner2.z});
         *right = init_kdtree_node(NULL,
                 (struct vec3)
-                {.x = root->corner2.x / 2,
+                {.x = MAX_2(root->corner1.x, root->corner2.x) / 2,
                 .y = root->corner1.y,
                 .z = root->corner1.z},
                 root->corner2);
@@ -123,12 +123,12 @@ static void get_childrens(struct kdtree *root, struct kdtree **left, struct kdtr
                 root->corner1,
                 (struct vec3)
                 {.x = root->corner2.x,
-                .y = root->corner2.y / 2,
+                .y = MAX_2(root->corner1.z, root->corner2.y) / 2,
                 .z = root->corner2.z});
         *right = init_kdtree_node(NULL,
                 (struct vec3)
                 {.x = root->corner1.x,
-                .y = root->corner2.y / 2,
+                .y = MAX_2(root->corner1.y, root->corner2.y) / 2,
                 .z = root->corner1.z},
                 root->corner2);
     }
@@ -139,19 +139,19 @@ static void get_childrens(struct kdtree *root, struct kdtree **left, struct kdtr
                 (struct vec3)
                 {.x = root->corner2.x,
                 .y = root->corner2.y,
-                .z = root->corner2.z / 2});
+                .z = MAX_2(root->corner1.z, root->corner2.z) / 2});
         *right = init_kdtree_node(NULL,
                 (struct vec3)
                 {.x = root->corner1.x,
                 .y = root->corner1.y,
-                .z = root->corner2.z / 2},
+                .z = MAX_2(root->corner1.z, root->corner2.z) / 2},
                 root->corner2);
     }
 }
 
 static void build_kdtree_rec(struct kdtree *root, size_t nb)
 {
-    if (nb == 30)
+    if (nb == 2)
         return;
 
     struct kdtree *left = NULL;
@@ -159,9 +159,9 @@ static void build_kdtree_rec(struct kdtree *root, size_t nb)
 
     char coor = 'x';
 
-    if (nb % 3 == 0)
+    if (nb % 3 == 1)
         coor = 'y';
-    else if (nb % 3 == 1)
+    else if (nb % 3 == 2)
         coor = 'z';
 
     get_childrens(root, &left, &right, coor);
@@ -296,16 +296,22 @@ static bool intersect_box_ray(struct kdtree *box, struct ray *ray)
 }
 
 static double get_object_intersect(struct kdtree *tree,
-                                           struct ray *ray,
-                                           struct object_intersection *closest_intersection)
+                                   struct ray *ray,
+                                   struct object_intersection *closest_intersection)
 {
+    double closest_intersection_dist = INFINITY;
     if (tree->left != NULL && intersect_box_ray(tree->left, ray))
-        return get_object_intersect(tree->left, ray, closest_intersection);
+        closest_intersection_dist =
+            MIN_2(closest_intersection_dist,
+                  get_object_intersect(tree->left, ray, closest_intersection));
 
     if (tree->right != NULL && intersect_box_ray(tree->right, ray))
-        return get_object_intersect(tree->right, ray, closest_intersection);
+        closest_intersection_dist =
+            MIN_2(closest_intersection_dist,
+                  get_object_intersect(tree->right, ray, closest_intersection));
 
-    double closest_intersection_dist = INFINITY;
+    if (tree->left != NULL || tree->right != NULL)
+        return closest_intersection_dist;
 
     for (size_t i = 0; i < tree->size_list; i++)
     {
@@ -321,7 +327,6 @@ static double get_object_intersect(struct kdtree *tree,
     }
 
     return closest_intersection_dist;
-
 }
 
 double kdtree_scene_intersect_ray(struct object_intersection *closest_intersection,
