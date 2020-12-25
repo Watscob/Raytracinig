@@ -151,7 +151,7 @@ static void get_childrens(struct kdtree *root, struct kdtree **left, struct kdtr
 
 static void build_kdtree_rec(struct kdtree *root, size_t nb)
 {
-    if (nb == 2)
+    if (nb == 25)
         return;
 
     struct kdtree *left = NULL;
@@ -251,27 +251,26 @@ void free_kdtree(struct kdtree *root)
     free(root);
 }
 
+static void swap_double(double *a, double *b)
+{
+    double tmp = *a;
+    *a = *b;
+    *b = tmp;
+}
+
 static bool intersect_box_ray(struct kdtree *box, struct ray *ray)
 {
     double tmin = (box->corner1.x - ray->source.x) / ray->direction.x;
     double tmax = (box->corner2.x - ray->source.x) / ray->direction.x;
 
     if (tmin > tmax)
-    {
-        double tmp = tmin;
-        tmin = tmax;
-        tmax = tmp;
-    }
+        swap_double(&tmin, &tmax);
 
     double tymin = (box->corner1.y - ray->source.y) / ray->direction.y;
     double tymax = (box->corner2.y - ray->source.y) / ray->direction.y;
 
     if (tymin > tymax)
-    {
-        double tmp = tymin;
-        tymin = tymax;
-        tymax = tmp;
-    }
+        swap_double(&tymin, &tymax);
 
     if (tmin > tymax || tymin > tmax)
         return false;
@@ -283,16 +282,9 @@ static bool intersect_box_ray(struct kdtree *box, struct ray *ray)
     double tzmax = (box->corner2.z - ray->source.z) / ray->direction.z;
 
     if (tzmin > tzmax)
-    {
-        double tmp = tzmin;
-        tzmin = tzmax;
-        tzmax = tmp;
-    }
+        swap_double(&tzmin, &tzmax);
 
-    if (tmin > tzmax || tzmin > tmax)
-        return false;
-
-    return true;
+    return !(tmin > tzmax || tzmin > tmax);
 }
 
 static double get_object_intersect(struct kdtree *tree,
