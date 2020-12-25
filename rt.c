@@ -191,6 +191,7 @@ static void render_shaded(struct rgb_image *image, struct scene *scene,
     struct material *mat = closest_intersection.material;
     struct vec3 pix_color
         = mat->shade(mat, &closest_intersection.location, scene, &ray);
+
     rgb_image_set(image, x, y, rgb_color_from_light(&pix_color));
 }
 
@@ -371,11 +372,9 @@ int main(int argc, char *argv[])
     if (load_obj(&scene, argv[1]))
     {
         printf("Fail\n");
-        fflush(stdout);
         return 41;
     }
     printf("Success\n");
-    fflush(stdout);
 
     // parse options
     render_mode_f renderer = render_shaded;
@@ -392,14 +391,12 @@ int main(int argc, char *argv[])
     fflush(stdout);
     handle_renderer(renderer, image, &scene);
     printf("Success\n");
-    fflush(stdout);
 
     // apply anti-aliasing
     printf("Apply anti-aliasing... ");
     fflush(stdout);
     image = reduce_image(image);
     printf("Success\n");
-    fflush(stdout);
 
 
     // write the rendered image to a bmp file
@@ -409,14 +406,12 @@ int main(int argc, char *argv[])
     if (fp == NULL)
     {
         printf("Fail\n");
-        fflush(stdout);
         err(1, "failed to open the output file");
     }
 
     rc = bmp_write(image, ppm_from_ppi(80), fp);
     fclose(fp);
     printf("Success\n");
-    fflush(stdout);
 
     // release resources
     scene_destroy(&scene);
