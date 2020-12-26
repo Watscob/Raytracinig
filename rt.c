@@ -11,7 +11,6 @@
 #include "bmp.h"
 #include "camera.h"
 #include "image.h"
-#include "kdtree.h"
 #include "normal_material.h"
 #include "obj_loader.h"
 #include "phong_material.h"
@@ -274,21 +273,20 @@ scene_intersect_ray(struct object_intersection *closest_intersection,
 }
 
 typedef void (*render_mode_f)(struct rgb_image *, struct scene *, size_t x,
-                              size_t y, struct kdtree *tree);
+                              size_t y);
 
 /* For all the pixels of the image, try to find the closest object
 ** intersecting the camera ray. If an object is found, shade the pixel to
 ** find its color.
 */
 static void render_shaded(struct rgb_image *image, struct scene *scene,
-                          size_t x, size_t y, struct kdtree *tree)
+                          size_t x, size_t y)
 {
     struct ray ray = image_cast_ray(image, scene, x, y);
 
     struct object_intersection closest_intersection;
     double closest_intersection_dist
-        = kdtree_scene_intersect_ray(&closest_intersection, tree, &ray);
-    //    = scene_intersect_ray(&closest_intersection, scene, &ray);
+        = scene_intersect_ray(&closest_intersection, scene, &ray);
 
     // if the intersection distance is infinite, do not shade the pixel
     if (isinf(closest_intersection_dist))
@@ -306,14 +304,13 @@ static void render_shaded(struct rgb_image *image, struct scene *scene,
 ** find its color.
 */
 static void render_normals(struct rgb_image *image, struct scene *scene,
-                           size_t x, size_t y, struct kdtree *tree)
+                           size_t x, size_t y)
 {
     struct ray ray = image_cast_ray(image, scene, x, y);
 
     struct object_intersection closest_intersection;
     double closest_intersection_dist
-        = kdtree_scene_intersect_ray(&closest_intersection, tree, &ray);
-       // = scene_intersect_ray(&closest_intersection, scene, &ray);
+        = scene_intersect_ray(&closest_intersection, scene, &ray);
 
     // if the intersection distance is infinite, do not shade the pixel
     if (isinf(closest_intersection_dist))
@@ -330,14 +327,13 @@ static void render_normals(struct rgb_image *image, struct scene *scene,
 ** find its color.
 */
 static void render_distances(struct rgb_image *image, struct scene *scene,
-                             size_t x, size_t y, struct kdtree *tree)
+                             size_t x, size_t y)
 {
     struct ray ray = image_cast_ray(image, scene, x, y);
 
     struct object_intersection closest_intersection;
     double closest_intersection_dist
-        = kdtree_scene_intersect_ray(&closest_intersection, tree, &ray);
-       // = scene_intersect_ray(&closest_intersection, scene, &ray);
+        = scene_intersect_ray(&closest_intersection, scene, &ray);
 
     // if the intersection distance is infinite, do not shade the pixel
     if (isinf(closest_intersection_dist))
@@ -359,7 +355,6 @@ struct worker_args
     render_mode_f renderer;
     struct rgb_image *image;
     struct scene *scene;
-    struct kdtree *tree;
     size_t min_y;
     size_t max_y;
 };
@@ -367,7 +362,6 @@ struct worker_args
 static struct worker_args *init_worker_args(render_mode_f renderer,
                                             struct rgb_image *image,
                                             struct scene *scene,
-                                            struct kdtree *tree,
                                             size_t line_per_process,
                                             size_t i)
 {
@@ -379,7 +373,6 @@ static struct worker_args *init_worker_args(render_mode_f renderer,
     wa->renderer = renderer;
     wa->image = image;
     wa->scene = scene;
-    wa->tree = tree;
     wa->min_y = i * line_per_process;
     wa->max_y = (i + 1) * line_per_process + 1;
 
@@ -392,7 +385,7 @@ static void *worker(void *args)
 
     for (size_t y = wa->min_y; y < wa->max_y; y++)
         for (size_t x = 0; x < wa->image->width; x++)
-            wa->renderer(wa->image, wa->scene, x, y, wa->tree);
+            wa->renderer(wa->image, wa->scene, x, y);
 
     free(args);
     pthread_exit(NULL);
@@ -402,8 +395,7 @@ static void *worker(void *args)
 */
 static void handle_renderer(render_mode_f renderer,
                             struct rgb_image *image,
-                            struct scene *scene,
-                            struct kdtree *tree)
+                            struct scene *scene)
 {
     size_t nb_process = sysconf(_SC_NPROCESSORS_ONLN) / 2;
     size_t line_per_process = image->height / nb_process;
@@ -414,7 +406,6 @@ static void handle_renderer(render_mode_f renderer,
         struct worker_args *wa = init_worker_args(renderer,
                                                   image,
                                                   scene,
-                                                  tree,
                                                   line_per_process,
                                                   i);
 
@@ -507,12 +498,6 @@ int main(int argc, char *argv[])
     if (load_obj(&scene, argv[1]))
         return 41;
 
-    printf("Make KD-Tree... ");
-    fflush(stdout);
-    struct kdtree *tree = build_kdtree(&scene);
-    printf("Success\n");
-    fflush(stdout);
-
     // parse options
     render_mode_f renderer = render_shaded;
     for (int i = 3; i < argc; i++)
@@ -540,7 +525,6 @@ int main(int argc, char *argv[])
 
     // release resources
     scene_destroy(&scene);
-    free_kdtree(tree);
     free(image);
     return rc;
 }
