@@ -470,69 +470,39 @@ int main(int argc, char *argv[])
     // rendering)
     struct rgb_image *image = rgb_image_alloc(2000, 2000);
 
-    SEED = rand() % (10);
-    noise_map = generate_noise_map(image->width, image->height, 25);
+    SEED = rand() % (50);
+    noise_map = generate_noise_map(image->width, image->height, 50);
 
-    /*for(size_t y = 0; y < image->height; y++)
+    struct rgb_pixel color5 = {.r = 255, .g = 209, .b = 227};
+    struct rgb_pixel color4 = {.r = 184, .g = 255, .b = 255};
+    struct rgb_pixel color3 = {.r = 252, .g = 255, .b = 221};
+    struct rgb_pixel color2 = {.r = 169, .g = 255, .b = 247};
+    struct rgb_pixel color1 = {.r = 105, .g = 221, .b = 255};
+
+    // set all the pixels of the image to black
+    struct rgb_pixel bg_color = {.r = 255, .g = 255, .b = 255};
+    rgb_image_clear(image, &bg_color);
+
+    for(size_t y = 0; y < image->height; y++)
     {
         for(size_t x = 0; x < image->width; x++)
         {
             float noise = noise_map[y * image->width + x];
-            struct rgb_pixel pix =
-            {
-                .r = 255 * noise,
-                .g = 255 * noise,
-                .b = 255 * noise,
-            };
+            struct rgb_pixel pix;
+
+            if (noise < 0.2)
+                pix = color1;
+            else if (noise < 0.41)
+                pix = color2;
+            else if (noise < 0.59)
+                pix = color3;
+            else if (noise < 0.7)
+                pix = color4;
+            else
+                pix = color5;
+
             rgb_image_set(image, x, y, pix);
         }
-    }*/
-    struct rgb_pixel sky = {.r = 135, .g = 206, .b = 235};
-    struct rgb_pixel snow = {.r = 255, .g = 255, .b = 255};
-    struct rgb_pixel ground = {.r = 155, .g = 118, .b = 83};
-    struct rgb_pixel grass = {.r = 86, .g = 125, .b = 70};
-
-    // set all the pixels of the image to black
-    struct rgb_pixel bg_color = sky;
-    rgb_image_clear(image, &bg_color);
-
-    int r = rand() % image->height;
-
-    float ratio = 1.5;
-
-    size_t *save_last_y_max = malloc(sizeof(size_t) * image->width);
-    for (size_t i = 0; i < image->width; i++)
-        save_last_y_max[i] = UINT_MAX;
-
-    for (size_t i = 0; i < 3; i++)
-    {
-        for (size_t x = 0; x < image->width; x++)
-        {
-            float noise = noise_map[r * image->width + x];
-
-            size_t y_max = MIN(noise * image->height / ratio, save_last_y_max[x]);
-            if (i == 0)
-                save_last_y_max[x] = y_max;
-
-            for(size_t y = 0; y < y_max; y++)
-            {
-                struct rgb_pixel pix;
-
-                if (i == 0)
-                    pix = snow;
-                else if (i == 1)
-                    pix = ground;
-                else if (i == 2)
-                    pix = grass;
-
-                rgb_image_set(image, x, y, pix);
-            }
-        }
-        r = rand() % image->height;
-        if (i == 0)
-            ratio *= 1.7;
-        else if (i == 1)
-            ratio *= 1.2;
     }
 
     free_noise_map();
