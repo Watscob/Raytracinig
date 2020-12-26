@@ -296,12 +296,7 @@ static void render_shaded(struct rgb_image *image, struct scene *scene,
     struct vec3 pix_color
         = mat->shade(mat, &closest_intersection.location, scene, &ray);
 
-    struct rgb_pixel pix = rgb_color_from_light(&pix_color);
-
-    float noise = noise_map[y * image->width + x];
-    pix.r *= noise;
-
-    rgb_image_set(image, x, y, pix);
+    rgb_image_set(image, x, y, rgb_color_from_light(&pix_color));
 }
 
 /* For all the pixels of the image, try to find the closest object
@@ -469,13 +464,13 @@ int main(int argc, char *argv[])
     struct rgb_image *image = rgb_image_alloc(2000, 2000);
 
     SEED = rand() % (50);
-    noise_map = generate_noise_map(image->width, image->height, 10);
+    noise_map = generate_noise_map(image->width, image->height, 100);
 
     // set all the pixels of the image to black
     struct rgb_pixel bg_color = {.r = 255, .g = 255, .b = 255};
     rgb_image_clear(image, &bg_color);
 
-    /*for(size_t y = 0; y < image->height; y++)
+    for(size_t y = 0; y < image->height; y++)
     {
         for(size_t x = 0; x < image->width; x++)
         {
@@ -483,26 +478,22 @@ int main(int argc, char *argv[])
             struct rgb_pixel pix =
             {
                 .r = 255 * noise,
-                .g = 255,
-                .b = 255,
+                .g = 255 * noise,
+                .b = 255 * noise,
             };
             rgb_image_set(image, x, y, pix);
         }
-    }*/
+    }
+
+    free_noise_map();
 
     double aspect_ratio = (double)image->width / image->height;
 
     // build the scene
-    printf("Reading %s... ", argv[1]);
-    fflush(stdout);
     build_obj_scene(&scene, aspect_ratio);
 
     if (load_obj(&scene, argv[1]))
-    {
-        printf("Fail\n");
         return 41;
-    }
-    printf("Success\n");
 
     // parse options
     render_mode_f renderer = render_shaded;
@@ -515,35 +506,22 @@ int main(int argc, char *argv[])
     }
 
     // render all pixels
-    printf("Generating the image... ");
-    fflush(stdout);
     handle_renderer(renderer, image, &scene);
-    printf("Success\n");
 
     // apply anti-aliasing
-    printf("Apply anti-aliasing... ");
-    fflush(stdout);
     image = reduce_image(image);
-    printf("Success\n");
 
 
     // write the rendered image to a bmp file
-    printf("Save the picture... ");
-    fflush(stdout);
     FILE *fp = fopen(argv[2], "w");
     if (fp == NULL)
-    {
-        printf("Fail\n");
         err(1, "failed to open the output file");
-    }
 
     rc = bmp_write(image, ppm_from_ppi(80), fp);
     fclose(fp);
-    printf("Success\n");
 
     // release resources
     scene_destroy(&scene);
-    free_noise_map();
     free(image);
     return rc;
 }
