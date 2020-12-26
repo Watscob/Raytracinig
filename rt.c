@@ -1,4 +1,5 @@
 #include <err.h>
+#include <limits.h>
 #include <math.h>
 #include <pthread.h>
 #include <stdbool.h>
@@ -18,6 +19,9 @@
 #include "sphere.h"
 #include "triangle.h"
 #include "vec3.h"
+
+#define MIN(a, b) (a < b) ? a : b
+#define MAX(a, b) (a > b) ? a : b
 
 unsigned char perm[512] = {
     151,160,137,91,90,15,131,13,201,95,96,53,194,233,7,225,140,
@@ -466,14 +470,10 @@ int main(int argc, char *argv[])
     // rendering)
     struct rgb_image *image = rgb_image_alloc(2000, 2000);
 
-    SEED = rand() % (50);
-    noise_map = generate_noise_map(image->width, image->height, 100);
+    SEED = rand() % (10);
+    noise_map = generate_noise_map(image->width, image->height, 25);
 
-    // set all the pixels of the image to black
-    struct rgb_pixel bg_color = {.r = 255, .g = 255, .b = 255};
-    rgb_image_clear(image, &bg_color);
-
-    for(size_t y = 0; y < image->height; y++)
+    /*for(size_t y = 0; y < image->height; y++)
     {
         for(size_t x = 0; x < image->width; x++)
         {
@@ -486,6 +486,53 @@ int main(int argc, char *argv[])
             };
             rgb_image_set(image, x, y, pix);
         }
+    }*/
+    struct rgb_pixel sky = {.r = 135, .g = 206, .b = 235};
+    struct rgb_pixel snow = {.r = 255, .g = 255, .b = 255};
+    struct rgb_pixel ground = {.r = 155, .g = 118, .b = 83};
+    struct rgb_pixel grass = {.r = 86, .g = 125, .b = 70};
+
+    // set all the pixels of the image to black
+    struct rgb_pixel bg_color = sky;
+    rgb_image_clear(image, &bg_color);
+
+    int r = rand() % image->height;
+
+    float ratio = 1.5;
+
+    size_t *save_last_y_max = malloc(sizeof(size_t) * image->width);
+    for (size_t i = 0; i < image->width; i++)
+        save_last_y_max[i] = UINT_MAX;
+
+    for (size_t i = 0; i < 3; i++)
+    {
+        for (size_t x = 0; x < image->width; x++)
+        {
+            float noise = noise_map[r * image->width + x];
+
+            size_t y_max = MIN(noise * image->height / ratio, save_last_y_max[x]);
+            if (i == 0)
+                save_last_y_max[x] = y_max;
+
+            for(size_t y = 0; y < y_max; y++)
+            {
+                struct rgb_pixel pix;
+
+                if (i == 0)
+                    pix = snow;
+                else if (i == 1)
+                    pix = ground;
+                else if (i == 2)
+                    pix = grass;
+
+                rgb_image_set(image, x, y, pix);
+            }
+        }
+        r = rand() % image->height;
+        if (i == 0)
+            ratio *= 1.7;
+        else if (i == 1)
+            ratio *= 1.2;
     }
 
     free_noise_map();
@@ -494,6 +541,7 @@ int main(int argc, char *argv[])
 
     // build the scene
     build_obj_scene(&scene, aspect_ratio);
+    //build_test_scene(&scene, aspect_ratio);
 
     if (load_obj(&scene, argv[1]))
         return 41;
