@@ -285,7 +285,7 @@ static struct worker_args *init_worker_args(render_mode_f renderer,
     wa->image = image;
     wa->scene = scene;
     wa->min_y = i * line_per_process;
-    wa->max_y = (i + 1) * line_per_process + 1;
+    wa->max_y = (i + 1) * line_per_process;
 
     return wa;
 }
