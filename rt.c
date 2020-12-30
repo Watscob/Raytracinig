@@ -190,7 +190,7 @@ static void render_shaded(struct rgb_image *image, struct scene *scene,
     // if the intersection distance is infinite, do not shade the pixel
     if (isinf(closest_intersection_dist))
     {
-        struct rgb_pixel pix = get_procedural_pixel(image, x, y);
+        struct rgb_pixel pix = get_procedural_pixel(scene, image, x, y);
         rgb_image_set(image, x, y, pix);
         return;
     }
@@ -218,7 +218,7 @@ static void render_normals(struct rgb_image *image, struct scene *scene,
     // if the intersection distance is infinite, do not shade the pixel
     if (isinf(closest_intersection_dist))
     {
-        struct rgb_pixel pix = get_procedural_pixel(image, x, y);
+        struct rgb_pixel pix = get_procedural_pixel(scene, image, x, y);
         rgb_image_set(image, x, y, pix);
         return;
     }
@@ -245,7 +245,7 @@ static void render_distances(struct rgb_image *image, struct scene *scene,
     // if the intersection distance is infinite, do not shade the pixel
     if (isinf(closest_intersection_dist))
     {
-        struct rgb_pixel pix = get_procedural_pixel(image, x, y);
+        struct rgb_pixel pix = get_procedural_pixel(scene, image, x, y);
         rgb_image_set(image, x, y, pix);
         return;
     }

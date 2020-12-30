@@ -112,14 +112,14 @@ void free_noise_map(void)
     noise_map = NULL;
 }
 
-struct rgb_pixel get_procedural_pixel(struct rgb_image *image, size_t x, size_t y)
+struct rgb_pixel get_procedural_pixel(struct scene *scene, struct rgb_image *image, size_t x, size_t y)
 {
     float noise = noise_map[y * image->width + x];
     struct rgb_pixel pix =
     {
-        .r = 255 * noise * 0.3,
-        .g = 228 * noise * 0.3,
-        .b = 54 * noise * 0.3
+        .r = scene->light_color.x * 255 * noise * 0.3,
+        .g = scene->light_color.y * 255 * noise * 0.3,
+        .b = scene->light_color.z * 255 * noise * 0.3
     };
 
     return pix;
