@@ -6,7 +6,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include <unistd.h>
 
 #include "bmp.h"
@@ -105,13 +104,13 @@ static void build_obj_scene(struct scene *scene, double aspect_ratio)
 }
 
 static struct ray image_cast_ray(const struct rgb_image *image,
-                                 const struct scene *scene, size_t x, size_t y)
+                                 const struct scene *scene, double x, double y)
 {
     // find the position of the current pixel in the image plane
     // camera_cast_ray takes camera relative positions, from -0.5 to 0.5 for
     // both axis
-    double cam_x = ((double)x / image->width) - 0.5;
-    double cam_y = ((double)y / image->height) - 0.5;
+    double cam_x = (x / image->width) - 0.5;
+    double cam_y = (y / image->height) - 0.5;
 
     // find the starting point and direction of this ray
     struct ray ray;
@@ -143,8 +142,19 @@ scene_intersect_ray(struct object_intersection *closest_intersection,
     return closest_intersection_dist;
 }
 
+static struct vec3 vec3_div(struct vec3 *a, int d)
+{
+    return (struct vec3){
+        .x = a->x / d,
+        .y = a->y / d,
+        .z = a->z / d,
+    };
+}
+
 typedef void (*render_mode_f)(struct rgb_image *, struct scene *, size_t x,
                               size_t y);
+
+#define PRECISION 5
 
 /* For all the pixels of the image, try to find the closest object
 ** intersecting the camera ray. If an object is found, shade the pixel to
@@ -164,14 +174,39 @@ static void render_shaded(struct rgb_image *image, struct scene *scene,
     {
         struct rgb_pixel pix = get_procedural_pixel(scene, image, x, y);
         rgb_image_set(image, x, y, pix);
-        return;
     }
+    else
+    {
+        struct vec3 pix_color = {0};
+        struct vec3 tmp;
+        struct material *mat = NULL;
 
-    struct material *mat = closest_intersection.material;
-    struct vec3 pix_color
-        = mat->shade(mat, &closest_intersection.location, scene, &ray);
+        for (short i = 0; i < PRECISION; i++)
+        {
+            if (i == 1)
+                ray = image_cast_ray(image, scene, x - 0.4, y - 0.4);
+            else if (i == 2)
+                ray = image_cast_ray(image, scene, x - 0.4, y + 0.4);
+            else if (i == 3)
+                ray = image_cast_ray(image, scene, x + 0.4, y - 0.4);
+            else if (i == 4)
+                ray = image_cast_ray(image, scene, x + 0.4, y + 0.4);
 
-    rgb_image_set(image, x, y, rgb_color_from_light(&pix_color));
+            if (i != 0)
+                closest_intersection_dist
+                    = scene_intersect_ray(&closest_intersection, scene, &ray);
+
+            if (!isinf(closest_intersection_dist))
+            {
+                mat = closest_intersection.material;
+                tmp = mat->shade(mat, &closest_intersection.location, scene, &ray);
+                tmp = vec3_div(&tmp, PRECISION);
+
+                pix_color = vec3_add(&pix_color, &tmp);
+            }
+        }
+        rgb_image_set(image, x, y, rgb_color_from_light(&pix_color));
+    }
 }
 
 /* For all the pixels of the image, try to find the closest object
@@ -303,39 +338,6 @@ static void handle_renderer(render_mode_f renderer,
             err(1, "Fail to join thread");
 }
 
-/* Antialiasing function (take the medium of  4 pixels to do 1 pixel
-*/
-struct rgb_image *reduce_image(struct rgb_image *image)
-{
-    struct rgb_image *res = rgb_image_alloc(image->width / 2,
-                                            image->height / 2);
-
-    for(size_t y = 0; y < res->height; y++)
-    {
-        for(size_t x = 0; x < res->width; x++)
-        {
-            res->data[res->width * y + x].r =
-                (image->data[image->width * 2 * y + 2 * x].r
-                + image->data[image->width * (2 * y + 1) + 2 * x].r
-                + image->data[image->width * 2 * y + (2 * x + 1)].r
-                + image->data[image->width * (2 * y + 1) + (2 * x + 1)].r) / 4;
-            res->data[res->width * y + x].g =
-                (image->data[image->width * 2 * y + 2 * x].g
-                + image->data[image->width * (2 * y + 1) + 2 * x].g
-                + image->data[image->width * 2 * y + (2 * x + 1)].g
-                + image->data[image->width * (2 * y + 1) + (2 * x + 1)].g) / 4;
-            res->data[res->width * y + x].b =
-                (image->data[image->width * 2 * y + 2 * x].b
-                + image->data[image->width * (2 * y + 1) + 2 * x].b
-                + image->data[image->width * 2 * y + (2 * x + 1)].b
-                + image->data[image->width * (2 * y + 1) + (2 * x + 1)].b) / 4;
-        }
-    }
-
-    free(image);
-    return res;
-}
-
 int main(int argc, char *argv[])
 {
     int rc;
@@ -348,7 +350,7 @@ int main(int argc, char *argv[])
 
     // initialize the frame buffer (the buffer that will store the result of the
     // rendering)
-    struct rgb_image *image = rgb_image_alloc(2000, 2000);
+    struct rgb_image *image = rgb_image_alloc(1500, 1500);
 
     // set all the pixels of the image to black
     struct rgb_pixel bg_color = {0};
@@ -379,9 +381,6 @@ int main(int argc, char *argv[])
 
     // render all pixels
     handle_renderer(renderer, image, &scene);
-
-    // apply anti-aliasing
-    image = reduce_image(image);
 
     // write the rendered image to a bmp file
     FILE *fp = fopen(argv[2], "w");
