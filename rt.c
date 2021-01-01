@@ -21,6 +21,8 @@
 #include "vec3.h"
 #include "color.h"
 
+#define NB_RAY_PER_PIXEL 5
+
 static void build_test_scene(struct scene *scene, double aspect_ratio)
 {
     // create a sample red material
@@ -142,19 +144,8 @@ scene_intersect_ray(struct object_intersection *closest_intersection,
     return closest_intersection_dist;
 }
 
-static struct vec3 vec3_div(struct vec3 *a, int d)
-{
-    return (struct vec3){
-        .x = a->x / d,
-        .y = a->y / d,
-        .z = a->z / d,
-    };
-}
-
 typedef void (*render_mode_f)(struct rgb_image *, struct scene *, size_t x,
                               size_t y);
-
-#define PRECISION 5
 
 /* For all the pixels of the image, try to find the closest object
 ** intersecting the camera ray. If an object is found, shade the pixel to
@@ -181,7 +172,7 @@ static void render_shaded(struct rgb_image *image, struct scene *scene,
         struct vec3 tmp;
         struct material *mat = NULL;
 
-        for (short i = 0; i < PRECISION; i++)
+        for (short i = 0; i < NB_RAY_PER_PIXEL; i++)
         {
             if (i == 1)
                 ray = image_cast_ray(image, scene, x - 0.4, y - 0.4);
@@ -200,7 +191,7 @@ static void render_shaded(struct rgb_image *image, struct scene *scene,
             {
                 mat = closest_intersection.material;
                 tmp = mat->shade(mat, &closest_intersection.location, scene, &ray);
-                tmp = vec3_div(&tmp, PRECISION);
+                tmp = vec3_div(&tmp, NB_RAY_PER_PIXEL);
 
                 pix_color = vec3_add(&pix_color, &tmp);
             }
