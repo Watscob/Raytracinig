@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "bmp.h"
@@ -22,6 +23,12 @@
 #include "color.h"
 
 #define NB_RAY_PER_PIXEL 5
+static double coor_offset[4][2] = {
+    {-0.5, -0.5},
+    {-0.5, 0.5},
+    {0.5, -0.5},
+    {0.5, 0.5},
+};
 
 static void build_test_scene(struct scene *scene, double aspect_ratio)
 {
@@ -174,18 +181,12 @@ static void render_shaded(struct rgb_image *image, struct scene *scene,
 
         for (short i = 0; i < NB_RAY_PER_PIXEL; i++)
         {
-            if (i == 1)
-                ray = image_cast_ray(image, scene, x - 0.4, y - 0.4);
-            else if (i == 2)
-                ray = image_cast_ray(image, scene, x - 0.4, y + 0.4);
-            else if (i == 3)
-                ray = image_cast_ray(image, scene, x + 0.4, y - 0.4);
-            else if (i == 4)
-                ray = image_cast_ray(image, scene, x + 0.4, y + 0.4);
-
             if (i != 0)
+            {
+                ray = image_cast_ray(image, scene, x + coor_offset[i - 1][0], y + coor_offset[i - 1][1]);
                 closest_intersection_dist
                     = scene_intersect_ray(&closest_intersection, scene, &ray);
+            }
 
             if (!isinf(closest_intersection_dist))
             {
@@ -336,12 +337,13 @@ int main(int argc, char *argv[])
     if (argc < 3)
         errx(1, "Usage: SCENE.obj OUTPUT.bmp [--normals] [--distances]");
 
+    srand(time(NULL));
     struct scene scene;
     scene_init(&scene);
 
     // initialize the frame buffer (the buffer that will store the result of the
     // rendering)
-    struct rgb_image *image = rgb_image_alloc(1500, 1500);
+    struct rgb_image *image = rgb_image_alloc(1000, 1000);
 
     // set all the pixels of the image to black
     struct rgb_pixel bg_color = {0};
