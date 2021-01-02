@@ -153,6 +153,8 @@ scene_intersect_ray(struct object_intersection *closest_intersection,
     return closest_intersection_dist;
 }
 
+/* Handle reflection
+*/
 static void get_reflect_ray(struct scene *scene, struct ray *ray, struct object_intersection *closest_intersection)
 {
     struct vec3 off = vec3_mul(&ray->direction, 0.01);
@@ -204,6 +206,8 @@ static void render_shaded(struct rgb_image *image, struct scene *scene,
     struct vec3 pix_color = {0};
     struct vec3 tmp;
 
+    /* Throw NB_RAY_PER_PIXEL rays for one pixel (antialiasing)
+    */
     for (short i = 0; i < NB_RAY_PER_PIXEL; i++)
     {
         ray = image_cast_ray(image, scene, x + coor_offset[i][0],
@@ -367,7 +371,7 @@ int main(int argc, char *argv[])
     struct rgb_image *image = rgb_image_alloc(1000, 1000);
 
     // set all the pixels of the image to black
-    struct rgb_pixel bg_color = {.r = 255, .g = 255, .b = 255};
+    struct rgb_pixel bg_color = {0};
     rgb_image_clear(image, &bg_color);
 
     // Init procedural background
