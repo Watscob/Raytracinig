@@ -10,5 +10,8 @@ void free_noise_map(void);
 struct rgb_pixel get_procedural_pixel(struct scene *scene,
                                       struct rgb_image *image, size_t x,
                                       size_t y);
+struct vec3 get_procedural_pixel_vec(struct scene *scene,
+                                      struct rgb_image *image, size_t x,
+                                      size_t y);
 
 #endif /* PROCEDURAL_BACKGROUND_H */

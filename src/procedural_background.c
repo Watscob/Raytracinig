@@ -118,9 +118,20 @@ struct rgb_pixel get_procedural_pixel(struct scene *scene,
                                       size_t y)
 {
     float noise = noise_map[y * image->width + x];
-    struct rgb_pixel pix = {.r = scene->light_color.x * 255 * noise * 0.3,
-                            .g = scene->light_color.y * 255 * noise * 0.3,
-                            .b = scene->light_color.z * 255 * noise * 0.3};
+    struct rgb_pixel pix = {.r = scene->light_color.x * 255 * noise * 0.05,
+                            .g = scene->light_color.y * 255 * noise * 0.05,
+                            .b = scene->light_color.z * 255 * noise * 0.05};
 
+    return pix;
+}
+
+struct vec3 get_procedural_pixel_vec(struct scene *scene,
+                                      struct rgb_image *image, size_t x,
+                                      size_t y)
+{
+    float noise = noise_map[y * image->width + x];
+    struct vec3 pix = {.x = scene->light_color.x * noise * 0.05,
+                       .y = scene->light_color.y * noise * 0.05,
+                       .z = scene->light_color.z * noise * 0.05};
     return pix;
 }

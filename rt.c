@@ -23,7 +23,9 @@
 #include "color.h"
 
 #define NB_RAY_PER_PIXEL 5
-static double coor_offset[4][2] = {
+#define NB_REC_REFLECTION 4
+static double coor_offset[5][2] = {
+    {0, 0},
     {-0.5, -0.5},
     {-0.5, 0.5},
     {0.5, -0.5},
@@ -151,6 +153,43 @@ scene_intersect_ray(struct object_intersection *closest_intersection,
     return closest_intersection_dist;
 }
 
+static void get_reflect_ray(struct scene *scene, struct ray *ray, struct object_intersection *closest_intersection)
+{
+    struct vec3 off = vec3_mul(&ray->direction, 0.01);
+    ray->source = vec3_add(&closest_intersection->location.point, &off);
+    ray->direction = vec3_reflect(&scene->light_direction, &closest_intersection->location.normal);
+}
+
+static struct vec3 reflect(struct rgb_image *image, struct scene *scene,
+                           struct ray *ray, int rec, double x, double y)
+{
+    if (rec >= NB_REC_REFLECTION)
+        return (struct vec3){0};
+
+    // Get intersection
+    struct object_intersection closest_intersection;
+    double closest_intersection_dist
+        = scene_intersect_ray(&closest_intersection, scene, ray);
+
+    // If no intersection
+    if (isinf(closest_intersection_dist))
+        return get_procedural_pixel_vec(scene, image, x, y);
+
+    // Get material
+    struct material *mat = closest_intersection.material;
+    struct vec3 pix_color = mat->shade(mat, &closest_intersection.location, scene, ray);
+
+    // Create reflected ray
+    get_reflect_ray(scene, ray, &closest_intersection);
+
+    /* Add reflected ray to current color
+    ** pixel_color += 0.2 * reflect()
+    */
+    struct vec3 ret_vec = reflect(image, scene, ray, rec + 1, x, y);
+    ret_vec = vec3_mul(&ret_vec, 0.2);
+    return vec3_add(&ret_vec, &pix_color);
+}
+
 typedef void (*render_mode_f)(struct rgb_image *, struct scene *, size_t x,
                               size_t y);
 
@@ -161,44 +200,23 @@ typedef void (*render_mode_f)(struct rgb_image *, struct scene *, size_t x,
 static void render_shaded(struct rgb_image *image, struct scene *scene,
                           size_t x, size_t y)
 {
-    struct ray ray = image_cast_ray(image, scene, x, y);
+    struct ray ray;
+    struct vec3 pix_color = {0};
+    struct vec3 tmp;
 
-    struct object_intersection closest_intersection;
-    double closest_intersection_dist
-        = scene_intersect_ray(&closest_intersection, scene, &ray);
-
-    // if the intersection distance is infinite, do not shade the pixel
-    if (isinf(closest_intersection_dist))
+    for (short i = 0; i < NB_RAY_PER_PIXEL; i++)
     {
-        struct rgb_pixel pix = get_procedural_pixel(scene, image, x, y);
-        rgb_image_set(image, x, y, pix);
+        ray = image_cast_ray(image, scene, x + coor_offset[i][0],
+                                           y + coor_offset[i][1]);
+
+        tmp = reflect(image, scene, &ray, 0, x + coor_offset[i][0],
+                                             y + coor_offset[i][1]);
+
+        tmp = vec3_div(&tmp, NB_RAY_PER_PIXEL);
+        pix_color = vec3_add(&pix_color, &tmp);
     }
-    else
-    {
-        struct vec3 pix_color = {0};
-        struct vec3 tmp;
-        struct material *mat = NULL;
 
-        for (short i = 0; i < NB_RAY_PER_PIXEL; i++)
-        {
-            if (i != 0)
-            {
-                ray = image_cast_ray(image, scene, x + coor_offset[i - 1][0], y + coor_offset[i - 1][1]);
-                closest_intersection_dist
-                    = scene_intersect_ray(&closest_intersection, scene, &ray);
-            }
-
-            if (!isinf(closest_intersection_dist))
-            {
-                mat = closest_intersection.material;
-                tmp = mat->shade(mat, &closest_intersection.location, scene, &ray);
-                tmp = vec3_div(&tmp, NB_RAY_PER_PIXEL);
-
-                pix_color = vec3_add(&pix_color, &tmp);
-            }
-        }
-        rgb_image_set(image, x, y, rgb_color_from_light(&pix_color));
-    }
+    rgb_image_set(image, x, y, rgb_color_from_light(&pix_color));
 }
 
 /* For all the pixels of the image, try to find the closest object
@@ -286,7 +304,10 @@ static struct worker_args *init_worker_args(render_mode_f renderer,
     wa->image = image;
     wa->scene = scene;
     wa->min_y = i * line_per_process;
-    wa->max_y = (i + 1) * line_per_process;
+    if (image->height - (i + 1) * line_per_process < line_per_process)
+        wa->max_y = image->height;
+    else
+        wa->max_y = (i + 1) * line_per_process;
 
     return wa;
 }
@@ -346,7 +367,7 @@ int main(int argc, char *argv[])
     struct rgb_image *image = rgb_image_alloc(1000, 1000);
 
     // set all the pixels of the image to black
-    struct rgb_pixel bg_color = {0};
+    struct rgb_pixel bg_color = {.r = 255, .g = 255, .b = 255};
     rgb_image_clear(image, &bg_color);
 
     // Init procedural background
