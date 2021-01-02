@@ -155,11 +155,13 @@ scene_intersect_ray(struct object_intersection *closest_intersection,
 
 /* Handle reflection
 */
-static void get_reflect_ray(struct scene *scene, struct ray *ray, struct object_intersection *closest_intersection)
+static void get_reflect_ray(struct ray *ray,
+                            struct object_intersection *closest_intersection)
 {
+    ray->direction =
+        vec3_reflect(&ray->direction, &closest_intersection->location.normal);
     struct vec3 off = vec3_mul(&ray->direction, 0.01);
     ray->source = vec3_add(&closest_intersection->location.point, &off);
-    ray->direction = vec3_reflect(&scene->light_direction, &closest_intersection->location.normal);
 }
 
 static struct vec3 reflect(struct rgb_image *image, struct scene *scene,
@@ -178,17 +180,19 @@ static struct vec3 reflect(struct rgb_image *image, struct scene *scene,
         return get_procedural_pixel_vec(scene, image, x, y);
 
     // Get material
-    struct material *mat = closest_intersection.material;
-    struct vec3 pix_color = mat->shade(mat, &closest_intersection.location, scene, ray);
+    struct phong_material *mat =
+        (struct phong_material *)closest_intersection.material;
+    struct vec3 pix_color =
+        mat->base.shade(&mat->base, &closest_intersection.location, scene, ray);
 
     // Create reflected ray
-    get_reflect_ray(scene, ray, &closest_intersection);
+    get_reflect_ray(ray, &closest_intersection);
 
     /* Add reflected ray to current color
     ** pixel_color += 0.2 * reflect()
     */
     struct vec3 ret_vec = reflect(image, scene, ray, rec + 1, x, y);
-    ret_vec = vec3_mul(&ret_vec, 0.2);
+    ret_vec = vec3_mul(&ret_vec, mat->spec_Ks);
     return vec3_add(&ret_vec, &pix_color);
 }
 
