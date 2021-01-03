@@ -22,8 +22,10 @@
 #include "vec3.h"
 #include "color.h"
 
-#define NB_RAY_PER_PIXEL 5
 #define NB_REC_REFLECTION 4
+
+#define NB_RAY_PER_PIXEL 5
+// Offset coordonates for the five rays throw for each pixel
 static double coor_offset[5][2] = {
     {0, 0},
     {-0.5, -0.5},
@@ -153,7 +155,9 @@ scene_intersect_ray(struct object_intersection *closest_intersection,
     return closest_intersection_dist;
 }
 
-/* Handle reflection
+/* Return the reflected ray reflection
+** Source -> Intersection point
+** Direction -> Use reflect function
 */
 static void get_reflect_ray(struct ray *ray,
                             struct object_intersection *closest_intersection)
@@ -220,6 +224,9 @@ static void render_shaded(struct rgb_image *image, struct scene *scene,
         tmp = reflect(image, scene, &ray, 0, x + coor_offset[i][0],
                                              y + coor_offset[i][1]);
 
+        /* Divide the resulting vec by the number of pixel per ray and
+        ** add it to the previous one
+        */
         tmp = vec3_div(&tmp, NB_RAY_PER_PIXEL);
         pix_color = vec3_add(&pix_color, &tmp);
     }
@@ -297,6 +304,8 @@ struct worker_args
     size_t max_y;
 };
 
+/* Init worker_args structure
+*/
 static struct worker_args *init_worker_args(render_mode_f renderer,
                                             struct rgb_image *image,
                                             struct scene *scene,
@@ -311,7 +320,12 @@ static struct worker_args *init_worker_args(render_mode_f renderer,
     wa->renderer = renderer;
     wa->image = image;
     wa->scene = scene;
+
+    // min_y is the line where the process will begin to throw rays
     wa->min_y = i * line_per_process;
+
+    // max_y - 1 is the last line where the process will throw rays
+    // If it is the last process to be start, take all the last lines
     if (image->height - (i + 1) * line_per_process < line_per_process)
         wa->max_y = image->height;
     else
@@ -320,6 +334,9 @@ static struct worker_args *init_worker_args(render_mode_f renderer,
     return wa;
 }
 
+/* Throw rays in its proper part delimited by min_y and max_y
+** Executed by a thread
+*/
 static void *worker(void *args)
 {
     struct worker_args* wa = args;
@@ -338,10 +355,13 @@ static void handle_renderer(render_mode_f renderer,
                             struct rgb_image *image,
                             struct scene *scene)
 {
+    // Compute the number of process could be launch
+    // (= number of threads / 2 to do not use at 100% the cpu)
     size_t nb_process = sysconf(_SC_NPROCESSORS_ONLN) / 2;
     size_t line_per_process = image->height / nb_process;
     pthread_t thrds[nb_process];
 
+    // Launch each process
     for(size_t i = 0; i < nb_process; i++)
     {
         struct worker_args *wa = init_worker_args(renderer,
@@ -354,6 +374,7 @@ static void handle_renderer(render_mode_f renderer,
             err(1, "Fail to create thread");
     }
 
+    // Wait each process
     for(size_t i = 0; i < nb_process; i++)
         if (pthread_join(thrds[i], NULL) != 0)
             err(1, "Fail to join thread");
@@ -386,7 +407,6 @@ int main(int argc, char *argv[])
 
     // build the scene
     build_obj_scene(&scene, aspect_ratio);
-    //build_test_scene(&scene, aspect_ratio);
 
     if (load_obj(&scene, argv[1]))
         return 41;

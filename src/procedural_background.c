@@ -6,6 +6,10 @@
 
 static float *noise_map = NULL;
 
+/* Permutation table
+** Hash table with each numbers between 0 and 255
+** randomly sorted
+*/
 unsigned char perm[512] = {
     151, 160, 137, 91,  90,  15,  131, 13,  201, 95,  96,  53,  194, 233, 7,
     225, 140, 36,  103, 30,  69,  142, 8,   99,  37,  240, 21,  10,  23,  190,
@@ -28,24 +32,35 @@ unsigned char perm[512] = {
     7,   225, 140, 127, 4,   150, 254, 138, 236, 205, 93,  222, 114, 67,  29,
     24,  72,  243, 141, 128, 195, 78,  66,  215, 61,  156, 180};
 
+/* An offset when getting into the perm array
+*/
 static int SEED = 0;
 
+/* Return the value corresponding to the given x and y in the perm array
+** (= hash function)
+*/
 static int noise2(size_t x, size_t y)
 {
     int tmp = perm[(y + SEED) % 512];
     return perm[(tmp + x) % 512];
 }
 
+/* Linear intersection
+*/
 static float lin_inter(float x, float y, float s)
 {
     return x + s * (y - x);
 }
 
+/* Smooth intersection
+*/
 static float smooth_inter(float x, float y, float s)
 {
     return lin_inter(x, y, s * s * (3 - 2 * s));
 }
 
+/* Get the noise corresponding to the given x and y
+*/
 static float noise2d(float x, float y)
 {
     size_t x_int = x;
@@ -64,6 +79,8 @@ static float noise2d(float x, float y)
     return smooth_inter(low, high, y_frac);
 }
 
+/* Return the perlin value of x and y
+*/
 static float perlin2d(float x, float y)
 {
     float freq = 0.1;
@@ -87,14 +104,19 @@ static float perlin2d(float x, float y)
     return fin / div;
 }
 
+/* Initialize the seed variable with a random number between 0 and (x - 1)
+*/
 void init_seed(int x)
 {
     srand(time(NULL));
     SEED = rand() % x;
 }
 
+/* Generate the noise map use for an image
+*/
 void generate_noise_map(size_t width, size_t height, float scale)
 {
+    // Avoid division by 0
     if (scale <= 0)
         scale = 0.0001;
 
@@ -102,6 +124,8 @@ void generate_noise_map(size_t width, size_t height, float scale)
     if (noise_map == NULL)
         err(1, "Not enough memory");
 
+    // Create the noise map which has the same size as the image
+    // (Such as precalculate the noise to do not doing it when thowing rays
     for (size_t y = 0; y < height; y++)
         for (size_t x = 0; x < width; x++)
             noise_map[y * width + x] = perlin2d(x / scale, y / scale);
@@ -113,6 +137,9 @@ void free_noise_map(void)
     noise_map = NULL;
 }
 
+/* Return the noise value in the noise map corresponding to the position x and y,
+** multiply by a bias and convert it into a color
+*/
 struct rgb_pixel get_procedural_pixel(struct scene *scene,
                                       struct rgb_image *image, size_t x,
                                       size_t y)
@@ -125,6 +152,8 @@ struct rgb_pixel get_procedural_pixel(struct scene *scene,
     return pix;
 }
 
+/* Do the samoe thing that the precedent function, but do not convert into a color
+*/
 struct vec3 get_procedural_pixel_vec(struct scene *scene,
                                       struct rgb_image *image, size_t x,
                                       size_t y)
