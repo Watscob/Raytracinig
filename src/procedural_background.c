@@ -33,7 +33,7 @@ unsigned char perm[512] = {
     24,  72,  243, 141, 128, 195, 78,  66,  215, 61,  156, 180};
 
 /* An offset when getting into the perm array
-*/
+ */
 static int SEED = 0;
 
 /* Return the value corresponding to the given x and y in the perm array
@@ -46,21 +46,21 @@ static int noise2(size_t x, size_t y)
 }
 
 /* Linear intersection
-*/
+ */
 static float lin_inter(float x, float y, float s)
 {
     return x + s * (y - x);
 }
 
 /* Smooth intersection
-*/
+ */
 static float smooth_inter(float x, float y, float s)
 {
     return lin_inter(x, y, s * s * (3 - 2 * s));
 }
 
 /* Get the noise corresponding to the given x and y
-*/
+ */
 static float noise2d(float x, float y)
 {
     size_t x_int = x;
@@ -80,7 +80,7 @@ static float noise2d(float x, float y)
 }
 
 /* Return the perlin value of x and y
-*/
+ */
 static float perlin2d(float x, float y)
 {
     float freq = 0.1;
@@ -105,7 +105,7 @@ static float perlin2d(float x, float y)
 }
 
 /* Initialize the seed variable with a random number between 0 and (x - 1)
-*/
+ */
 void init_seed(int x)
 {
     srand(time(NULL));
@@ -113,7 +113,7 @@ void init_seed(int x)
 }
 
 /* Generate the noise map use for an image
-*/
+ */
 void generate_noise_map(size_t width, size_t height, float scale)
 {
     // Avoid division by 0
@@ -137,8 +137,8 @@ void free_noise_map(void)
     noise_map = NULL;
 }
 
-/* Return the noise value in the noise map corresponding to the position x and y,
-** multiply by a bias and convert it into a color
+/* Return the noise value in the noise map corresponding to the position x and
+** y, multiply by a bias and convert it into a color
 */
 struct rgb_pixel get_procedural_pixel(struct scene *scene,
                                       struct rgb_image *image, size_t x,
@@ -152,11 +152,12 @@ struct rgb_pixel get_procedural_pixel(struct scene *scene,
     return pix;
 }
 
-/* Do the samoe thing that the precedent function, but do not convert into a color
+/* Do the samoe thing that the precedent function, but do not convert into a
+** color
 */
 struct vec3 get_procedural_pixel_vec(struct scene *scene,
-                                      struct rgb_image *image, size_t x,
-                                      size_t y)
+                                     struct rgb_image *image, size_t x,
+                                     size_t y)
 {
     float noise = noise_map[y * image->width + x];
     struct vec3 pix = {.x = scene->light_color.x * noise * 0.05,
